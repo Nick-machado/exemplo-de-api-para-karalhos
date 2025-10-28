@@ -35,6 +35,38 @@ Esta API permite criar e gerenciar avisos em um mural digital. Cada aviso conté
 └── README.md             # Documentação
 ```
 
+## 🧭 Conceitos rápidos: REST, métodos HTTP e MVC
+
+### O que é uma API REST?
+- Uma API REST expõe recursos (ex.: Avisos) por meio de URLs (endpoints) e padrões HTTP.
+- É stateless: cada requisição carrega tudo que o servidor precisa para processá-la.
+- Normalmente troca dados em JSON.
+
+### Recursos e endpoints
+- Recurso: “Aviso”.
+- Endpoints típicos: `/avisos` (coleção), `/avisos/:id` (item específico).
+
+### Métodos HTTP principais
+- GET: lê dados (idempotente). Ex.: `GET /avisos` lista todos.
+- POST: cria dados. Ex.: `POST /avisos` cria um aviso (retorna 201 Created).
+- PUT/PATCH: atualiza dados (PUT substitui, PATCH altera parcialmente).
+- DELETE: remove dados (geralmente 204 No Content ou 200 OK).
+
+### Códigos de status (resumo útil)
+- 2xx: sucesso (200 OK, 201 Created, 204 No Content).
+- 4xx: erro do cliente (400 Bad Request, 404 Not Found, 422 Unprocessable Entity).
+- 5xx: erro no servidor (500 Internal Server Error).
+
+### MVC neste projeto (onde cada papel vive)
+- Routes (`routes/avisoRoutes.js`): definem os caminhos e métodos HTTP e encaminham para o controller.
+- Controllers (`controllers/avisoController.js`): validam entrada, aplicam regras e chamam o Model; montam a resposta HTTP.
+- Models (`models/Aviso.js`): cuidam dos dados (criar, listar, etc.). Aqui usamos um “banco” em memória para fins didáticos.
+
+Fluxo de uma requisição (resumo):
+Cliente → Rota → Controller → Model → Controller → Resposta HTTP
+
+Observação: Como a persistência é em memória, os dados são perdidos ao reiniciar o servidor.
+
 ## 🚀 Como Instalar e Executar
 
 ### Pré-requisitos

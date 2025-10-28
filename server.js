@@ -40,7 +40,7 @@ app.use('/avisos', avisoRoutes);
 
 // (Opcional) Rota de saúde do serviço, útil para monitoramento.
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ status: 'Rodou porra', timestamp: new Date().toISOString() });
 });
 
 // Middleware simples de tratamento de rotas inexistentes (404).
