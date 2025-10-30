@@ -10,6 +10,7 @@
  *       routes/, controllers/ e models/ (padrão MVC simplificado).
  */
 
+require('dotenv').config(); // Carrega variáveis de ambiente do .env
 const express = require('express');
 const app = express();
 

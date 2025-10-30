@@ -1,75 +1,106 @@
 /**
  * models/Aviso.js
  * ---------------------------------------------------------------------------
- * Model = camada responsável pelos dados:
- * - Estrutura do recurso (campos).
- * - Operações de persistência (create, find, update, delete).
+ * Model = camada responsável pelos dados com integração ao Supabase.
  * 
- * Neste exemplo simples, usamos um array em memória para simular um "banco".
- * Em um projeto real, aqui você integraria com um banco (SQLite, Postgres, etc.)
- * usando uma biblioteca/ORM (Knex, Sequelize, Prisma) ou drivers nativos.
- *
- * Por que ainda usamos async/await mesmo sem I/O real?
- * - Para manter a mesma assinatura do que seria um acesso a DB real.
- * - Facilita substituir por uma implementação real no futuro sem quebrar o Controller.
+ * Supabase é um BaaS (Backend as a Service) que fornece:
+ * - Banco de dados PostgreSQL gerenciado
+ * - API REST e Realtime automáticas
+ * - Autenticação integrada
+ * - Storage de arquivos
+ * 
+ * Aqui usamos o cliente JavaScript do Supabase para interagir com o banco.
  */
 
-// "Banco de dados" em memória (escopo de módulo).
-// Em ambiente real, nada disso persistirá quando o processo cair.
-const _avisos = []; // cada item: { id, titulo, descricao, usuarioId, criadoEm }
+// Importa o cliente do Supabase usando CommonJS (require)
+const { createClient } = require('@supabase/supabase-js');
 
-// Gerador simples de IDs incrementais (não use isso em produção).
-let _ultimoId = 0;
-// Observação: incrementos ingênuos de ID funcionam "ok" aqui pois não há concorrência
-// real. Em bancos de dados, prefira auto-incremento do próprio DB ou UUIDs.
+// Carrega credenciais das variáveis de ambiente
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+// Validação: garante que as variáveis estão configuradas
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error(
+    'Configuração do Supabase faltando! Certifique-se de ter SUPABASE_URL e SUPABASE_KEY no arquivo .env'
+  );
+}
+
+// Cria e exporta a instância do cliente Supabase
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 /**
- * Cria um novo aviso no "banco" em memória.
- * @param {Object} dados - Objeto com { titulo, descricao, usuarioId }
- * @returns {Promise<Object>} Aviso criado
+ * Função auxiliar: converte snake_case (do Supabase) para camelCase (do nosso código).
+ * Isso garante compatibilidade entre o banco e o controller.
+ * 
+ * @param {Object} avisoDb - Aviso retornado do Supabase (snake_case)
+ * @returns {Object} Aviso em camelCase
  */
+function mapearAvisoParaCamelCase(avisoDb) {
+  if (!avisoDb) return null;
+  
+  return {
+    id: avisoDb.id,
+    titulo: avisoDb.titulo,
+    descricao: avisoDb.descricao,
+    usuarioId: avisoDb.usuario_id,
+    criadoEm: avisoDb.criado_em
+  };
+}
+
 /**
- * Cria e retorna um novo aviso.
- *
- * @param {{ titulo: string, descricao: string, usuarioId: number|string }} dados
- * @returns {Promise<{ id: number, titulo: string, descricao: string, usuarioId: any, criadoEm: string }>}
+ * Cria um novo aviso no banco de dados Supabase.
+ * 
+ * @param {Object} dados - { titulo, descricao, usuarioId }
+ * @returns {Promise<Object>} Aviso criado com id gerado pelo banco
+ * @throws {Error} Se houver erro na inserção
  */
 async function create(dados) {
-  // Em um banco real, haveria operações assíncronas de I/O; aqui usamos async
-  // para manter a assinatura semelhante e permitir await no Controller.
+  // Insert no Supabase (tabela: avisos)
+  // Por padrão, o Supabase gera o id automaticamente se a coluna for SERIAL/UUID
+  const { data, error } = await supabase
+    .from('avisos') // Nome da tabela no Supabase
+    .insert([
+      {
+        titulo: dados.titulo,
+        descricao: dados.descricao,
+        usuario_id: dados.usuarioId, // Ajuste para snake_case se necessário
+        // criado_em: Supabase pode gerar automaticamente com default now()
+      }
+    ])
+    .select() // Retorna o registro inserido
+    .single(); // Retorna apenas 1 objeto (não array)
 
-  const agora = new Date();
+  if (error) {
+    throw new Error(`Erro ao criar aviso no Supabase: ${error.message}`);
+  }
 
-  const novo = {
-    id: ++_ultimoId,              // auto-incremento simplificado
-    titulo: dados.titulo,
-    descricao: dados.descricao,
-    usuarioId: dados.usuarioId,
-    criadoEm: agora.toISOString() // carimbo de criação em ISO-8601
-  };
-
-  _avisos.push(novo);
-
-  // Retornamos uma cópia para evitar que quem chamou modifique nosso "banco".
-  return { ...novo };
+  // Converte snake_case para camelCase antes de retornar
+  return mapearAvisoParaCamelCase(data);
 }
 
 /**
- * (Opcional) Lista todos os avisos (útil para depurar/testar rapidamente).
- * @returns {Promise<Array>}
- */
-/**
- * Retorna todos os avisos existentes.
- *
- * @returns {Promise<Array<{ id: number, titulo: string, descricao: string, usuarioId: any, criadoEm: string }>>}
+ * Lista todos os avisos do banco de dados Supabase.
+ * 
+ * @returns {Promise<Array>} Array de avisos
+ * @throws {Error} Se houver erro na consulta
  */
 async function findAll() {
-  // Retorna cópias superficiais para preservar imutabilidade externa.
-  return _avisos.map(a => ({ ...a }));
+  const { data, error } = await supabase
+    .from('avisos')
+    .select('*') // Seleciona todas as colunas
+    .order('criado_em', { ascending: false }); // Ordena do mais recente ao mais antigo
+
+  if (error) {
+    throw new Error(`Erro ao listar avisos no Supabase: ${error.message}`);
+  }
+
+  // Converte cada aviso de snake_case para camelCase
+  return (data || []).map(mapearAvisoParaCamelCase);
 }
 
-// Exporta as funções do "Model".
 module.exports = {
   create,
-  findAll
+  findAll,
+  supabase // Exporta também o cliente, caso precise usar em outros lugares
 };
